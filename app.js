@@ -14,42 +14,45 @@ var database = firebase.database();
 
 $("#frequency").on("click", function (event) {
     event.preventDefault();
+    if ($("#train-name-input").val() === "" || $("#destination-input").val() === "" || $("#first-train").val() === "" || $("#frequency-input").val() === "") {
+        $("#required").text("Please fill out all the fields");
+    } else {
+        var trainName = $("#train-name-input").val().trim();
+        var destination = $("#destination-input").val().trim();
+        var firstTrain = $("#first-train").val().trim();
+        var frequency = $("#frequency-input").val().trim();
 
-    var trainName = $("#train-name-input").val().trim();
-    var destination = $("#destination-input").val().trim();
-    var firstTrain = $("#first-train").val().trim();
-    var frequency = $("#frequency-input").val().trim();
+        var newTrain = {
+            trainName,
+            destination,
+            firstTrain,
+            frequency
+        };
 
-    var newTrain = {
-        trainName,
-        destination,
-        firstTrain,
-        frequency
-    };
-    
-    database.ref().push(newTrain);
+        database.ref().push(newTrain);
 
-    $("#train-name-input").val("");
-    $("#destination-name-input").val("");
-    $("#first-input").val("");
-    $("#frequency-input").val("");
+        $("#train-name-input").val("");
+        $("#destination-input").val("");
+        $("#first-train").val("");
+        $("#frequency-input").val("");
+        $("#required").text("");
+    }
 });
 
 database.ref().on("child_added", function (childSnapshot) {
-    
+
     var trainName = childSnapshot.val().trainName;
     var destination = childSnapshot.val().destination;
     var firstTrain = childSnapshot.val().firstTrain;
-    
     var frequency = childSnapshot.val().frequency;
 
 
-    var firstTimeConverted = moment(firstTrain, "HH:mm").subtract(1, "years");
-    var diffTime = moment().diff(moment(firstTimeConverted), "minutes");
+    var firstTrainConverted = moment(firstTrain, "HH:mm").subtract(1, "years");
+    var diffTime = moment().diff(moment(firstTrainConverted), "minutes");
     var remainder = diffTime % frequency;
     var minutesAway = frequency - remainder;
     var nextTrain = moment().add(minutesAway, "minutes").format('LT');
-   
+
     var newRow = $("<tr>").append(
         $("<td>").text(trainName),
         $("<td>").text(destination),
@@ -57,6 +60,8 @@ database.ref().on("child_added", function (childSnapshot) {
         $("<td>").text(nextTrain),
         $("<td>").text(minutesAway)
     );
-    
+
     $("#train-table > tbody").append(newRow);
 });
+
+
