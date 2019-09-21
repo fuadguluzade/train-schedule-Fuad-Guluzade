@@ -11,6 +11,7 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 var database = firebase.database();
+var trainsRef = database.ref('/trains');
 
 $("#frequency").on("click", function (event) {
     event.preventDefault();
@@ -29,7 +30,7 @@ $("#frequency").on("click", function (event) {
             frequency
         };
 
-        database.ref().push(newTrain);
+        trainsRef.child(trainName).set(newTrain);
 
         $("#train-name-input").val("");
         $("#destination-input").val("");
@@ -39,29 +40,60 @@ $("#frequency").on("click", function (event) {
     }
 });
 
-database.ref().on("child_added", function (childSnapshot) {
-
+trainsRef.on("child_added", function (childSnapshot) {
     var trainName = childSnapshot.val().trainName;
     var destination = childSnapshot.val().destination;
     var firstTrain = childSnapshot.val().firstTrain;
     var frequency = childSnapshot.val().frequency;
 
-
-    var firstTrainConverted = moment(firstTrain, "HH:mm").subtract(1, "years");
-    var diffTime = moment().diff(moment(firstTrainConverted), "minutes");
-    var remainder = diffTime % frequency;
-    var minutesAway = frequency - remainder;
-    var nextTrain = moment().add(minutesAway, "minutes").format('LT');
+    var result = calculations(firstTrain, frequency);
 
     var newRow = $("<tr>").append(
         $("<td>").text(trainName),
         $("<td>").text(destination),
         $("<td>").text(frequency),
-        $("<td>").text(nextTrain),
-        $("<td>").text(minutesAway)
+        $("<td>").text(result[0]),
+        $("<td>").text(result[1])
     );
 
     $("#train-table > tbody").append(newRow);
 });
+
+function calculations(firstTrainTime, freq) {
+    var firstTrainConverted = moment(firstTrainTime, "HH:mm").subtract(1, "years");
+    var diffTime = moment().diff(moment(firstTrainConverted), "minutes");
+    var remainder = diffTime % freq;
+    var minutesAway = freq - remainder;
+    var nextTrain = moment().add(minutesAway, "minutes").format('LT');
+
+    return [nextTrain, minutesAway];
+}
+
+
+function updateSchedule() {
+    $("tbody").empty();
+    console.log('updated');
+    trainsRef.on('child_added', function (snapshot) {
+        var frequency = snapshot.val().frequency;
+        var firstTrain = snapshot.val().firstTrain;
+        res = calculations(firstTrain, frequency);
+        var trainName = snapshot.val().trainName;
+        var destination = snapshot.val().destination;
+
+        var result = calculations(firstTrain, frequency);
+
+        var newRow = $("<tr>").append(
+            $("<td>").text(trainName),
+            $("<td>").text(destination),
+            $("<td>").text(frequency),
+            $("<td>").text(result[0]),
+            $("<td>").text(result[1])
+        );
+
+        $("#train-table > tbody").append(newRow);
+    })
+}
+
+setInterval(updateSchedule, 60000);
 
 
