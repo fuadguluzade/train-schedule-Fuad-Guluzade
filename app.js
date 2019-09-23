@@ -13,6 +13,7 @@ firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 var trainsRef = database.ref('/trains');
 var child;
+var pauseSetInterval = false;
 
 $(document).ready(function () {
     updateSchedule();
@@ -48,27 +49,30 @@ $("#frequency").on("click", function (event) {
 });
 
 function updateSchedule() {
-    $("tbody").empty();
-    trainsRef.on('child_added', function (snapshot) {
-        var frequency = snapshot.val().frequency;
-        var firstTrain = snapshot.val().firstTrain;
-        var trainName = snapshot.val().trainName;
-        var destination = snapshot.val().destination;
+    if (!pauseSetInterval) {
+        $("tbody").empty();
+        trainsRef.on('child_added', function (snapshot) {
+            var frequency = snapshot.val().frequency;
+            var firstTrain = snapshot.val().firstTrain;
+            var trainName = snapshot.val().trainName;
+            var destination = snapshot.val().destination;
 
-        var result = calculations(firstTrain, frequency);
+            var result = calculations(firstTrain, frequency);
 
-        var newRow = $("<tr>").append(
-            $("<td>").text(trainName).addClass('trName canEdit'),
-            $("<td>").text(destination).addClass('dest canEdit'),
-            $("<td>").text(frequency).addClass('freq canEdit'),
-            $("<td>").text(result[0]),
-            $("<td>").text(result[1]),
-        );
+            var newRow = $("<tr>").append(
+                $("<td>").text(trainName).addClass('trName canEdit'),
+                $("<td>").text(destination).addClass('dest canEdit'),
+                $("<td>").text(frequency).addClass('freq canEdit'),
+                $("<td>").text(result[0]),
+                $("<td>").text(result[1]),
+            );
 
-        $("#train-table > tbody").append(newRow);
-        newRow.append(`<button class='btn btn-primary edit'>Edit</button>`);
-        newRow.append(`<button class='btn btn-primary remove'>Remove</button>`);
-    });
+            $("#train-table > tbody").append(newRow);
+            newRow.append(`<button class='btn btn-primary edit'>Edit</button>`);
+            newRow.append(`<button class='btn btn-primary remove'>Remove</button>`);
+        });
+        console.log('updated');
+    }
 }
 
 function calculations(firstTrainTime, freq) {
@@ -97,14 +101,14 @@ $('tbody').on('click', '.edit', function () {
     $(this).removeClass('edit');
     $(this).addClass('save');
     $(this).html('Save');
-
+    pauseSetInterval = true;
 });
 
 $('tbody').on('click', '.save', function () {
     var keyName = `${$(this).parents('tr').find('.trName').html()}`;
-    trainsRef.child(`/${child}/`).update({trainName: keyName});
-    trainsRef.child(`/${child}/`).update({destination: `${$(this).parents('tr').find('.dest').html()}`});
-    trainsRef.child(`/${child}/`).update({frequency: `${$(this).parents('tr').find('.freq').html()}`});
+    trainsRef.child(`/${child}/`).update({ trainName: keyName });
+    trainsRef.child(`/${child}/`).update({ destination: `${$(this).parents('tr').find('.dest').html()}` });
+    trainsRef.child(`/${child}/`).update({ frequency: `${$(this).parents('tr').find('.freq').html()}` });
     updateSchedule();
     $(this).removeClass('save');
     $(this).addClass('edit');
@@ -115,6 +119,7 @@ $('tbody').on('click', '.save', function () {
         trainsRef.child(`${keyName}`).set(snapshot.val());
         trChild.remove();
     });
+    pauseSetInterval = false;
     updateSchedule();
 });
 
