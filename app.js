@@ -12,6 +12,11 @@ firebase.initializeApp(firebaseConfig);
 
 var database = firebase.database();
 var trainsRef = database.ref('/trains');
+var child;
+
+$(document).ready(function () {
+    updateSchedule();
+});
 
 $("#frequency").on("click", function (event) {
     event.preventDefault();
@@ -37,27 +42,34 @@ $("#frequency").on("click", function (event) {
         $("#first-train").val("");
         $("#frequency-input").val("");
         $("#required").text("");
+
+        updateSchedule();
     }
 });
 
-trainsRef.on("child_added", function (childSnapshot) {
-    var trainName = childSnapshot.val().trainName;
-    var destination = childSnapshot.val().destination;
-    var firstTrain = childSnapshot.val().firstTrain;
-    var frequency = childSnapshot.val().frequency;
+function updateSchedule() {
+    $("tbody").empty();
+    trainsRef.on('child_added', function (snapshot) {
+        var frequency = snapshot.val().frequency;
+        var firstTrain = snapshot.val().firstTrain;
+        var trainName = snapshot.val().trainName;
+        var destination = snapshot.val().destination;
 
-    var result = calculations(firstTrain, frequency);
+        var result = calculations(firstTrain, frequency);
 
-    var newRow = $("<tr>").append(
-        $("<td>").text(trainName),
-        $("<td>").text(destination),
-        $("<td>").text(frequency),
-        $("<td>").text(result[0]),
-        $("<td>").text(result[1])
-    );
+        var newRow = $("<tr>").append(
+            $("<td>").text(trainName).addClass('trName canEdit'),
+            $("<td>").text(destination).addClass('dest canEdit'),
+            $("<td>").text(frequency).addClass('freq canEdit'),
+            $("<td>").text(result[0]),
+            $("<td>").text(result[1]),
+        );
 
-    $("#train-table > tbody").append(newRow);
-});
+        $("#train-table > tbody").append(newRow);
+        newRow.append(`<button class='btn btn-primary edit'>Edit</button>`);
+        newRow.append(`<button class='btn btn-primary remove'>Remove</button>`);
+    });
+}
 
 function calculations(firstTrainTime, freq) {
     var firstTrainConverted = moment(firstTrainTime, "HH:mm").subtract(1, "years");
@@ -70,29 +82,47 @@ function calculations(firstTrainTime, freq) {
 }
 
 
-function updateSchedule() {
-    $("tbody").empty();
-    console.log('updated');
-    trainsRef.on('child_added', function (snapshot) {
-        var frequency = snapshot.val().frequency;
-        var firstTrain = snapshot.val().firstTrain;
-        res = calculations(firstTrain, frequency);
-        var trainName = snapshot.val().trainName;
-        var destination = snapshot.val().destination;
+$('tbody').on('click', '.edit', function () {
+    var currentTD = $(this).parents('tr').find('.canEdit');
+    if ($(this).html() == 'Edit') {
+        $.each(currentTD, function () {
+            $(this).prop('contenteditable', true)
+        });
+    } else {
+        $.each(currentTD, function () {
+            $(this).prop('contenteditable', false)
+        });
+    }
+    child = $(this).parents('tr').find('.trName').html();
+    $(this).removeClass('edit');
+    $(this).addClass('save');
+    $(this).html('Save');
 
-        var result = calculations(firstTrain, frequency);
+});
 
-        var newRow = $("<tr>").append(
-            $("<td>").text(trainName),
-            $("<td>").text(destination),
-            $("<td>").text(frequency),
-            $("<td>").text(result[0]),
-            $("<td>").text(result[1])
-        );
+$('tbody').on('click', '.save', function () {
+    var keyName = `${$(this).parents('tr').find('.trName').html()}`;
+    trainsRef.child(`/${child}/`).update({trainName: keyName});
+    trainsRef.child(`/${child}/`).update({destination: `${$(this).parents('tr').find('.dest').html()}`});
+    trainsRef.child(`/${child}/`).update({frequency: `${$(this).parents('tr').find('.freq').html()}`});
+    updateSchedule();
+    $(this).removeClass('save');
+    $(this).addClass('edit');
+    $(this).html('Edit');
 
-        $("#train-table > tbody").append(newRow);
-    })
-}
+    var trChild = trainsRef.child(`${child}`);
+    trChild.once('value', function (snapshot) {
+        trainsRef.child(`${keyName}`).set(snapshot.val());
+        trChild.remove();
+    });
+    updateSchedule();
+});
+
+$('tbody').on('click', '.remove', function () {
+    var trName = $(this).parents('tr').find('.trName').html();
+    trainsRef.child(trName).remove();
+    updateSchedule();
+});
 
 setInterval(updateSchedule, 60000);
 
